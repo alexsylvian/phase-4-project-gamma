@@ -206,6 +206,25 @@ class Users(Resource):
     
 api.add_resource(Users, '/users')
 
+class UserNameChange(Resource):
+    def patch(self, user_id):
+        data = request.get_json()
+
+        user = User.query.get(user_id)
+
+        if user:
+            user.username = data['username']
+
+            db.session.commit()
+
+            return jsonify(user.to_dict(), 200)
+
+        else:
+            return {"Error, User Not Found"}, 400
+        
+api.add_resource(UserNameChange, '/users/<int:user_id>')
+
+
 class AddUserToSubtask(Resource):
     def post(self, subtask_id):
         data = request.json
@@ -259,70 +278,5 @@ class Register(Resource):
     
 api.add_resource(Register, '/register')
 
-class ProjectsWithMinSubtasks(Resource):
-    def get(self, min_subtasks):
-        projects = (
-            db.session.query(Project)
-            .join(Subtask, Project.id == Subtask.project_id)
-            .group_by(Project.id)
-            .having(func.count(Subtask.id) >= min_subtasks)
-            .all()
-        )
-
-        project_list = [project.to_dict() for project in projects]
-        return jsonify(project_list)
-
-api.add_resource(ProjectsWithMinSubtasks, '/projects_with_min_subtasks/<int:min_subtasks>')
-
-class SubtasksWithUser(Resource):
-    def get(self, user_id):
-        # Query subtasks associated with the given user
-        subtasks = Subtask.query.join(Subtask.users).filter(User.id == user_id).all()
-
-        # Convert subtasks to dictionary format
-        subtask_list = [subtask.to_dict() for subtask in subtasks]
-        return jsonify(subtask_list), 200
-
-# Register the resource with the API
-api.add_resource(SubtasksWithUser, '/subtasks/user/<int:user_id>')
-
-class ProjectsWithUser(Resource):
-    def get(self, user_id):
-        # Query projects that have subtasks with the specified user attached
-        projects = (
-            db.session.query(Project)
-            .join(Subtask, Project.id == Subtask.project_id)
-            .join(User, Subtask.users)
-            .filter(User.id == user_id)
-            .group_by(Project.id)
-            .all()
-        )
-
-        # Convert projects to dictionary format
-        project_list = [project.to_dict() for project in projects]
-        return jsonify(project_list)
-
-# Register the resource with the API
-api.add_resource(ProjectsWithUser, '/projects/with_user/<int:user_id>')
-
-class ProjectsWithIncompleteSubtasks(Resource):
-    def get(self):
-        # Query projects that have at least one incomplete subtask
-        projects = (
-            db.session.query(Project)
-            .join(Subtask, Project.id == Subtask.project_id)
-            .filter(Subtask.completion_status == False)  # Assuming False represents incomplete
-            .group_by(Project.id)
-            .all()
-        )
-
-        # Convert projects to dictionary format
-        project_list = [project.to_dict() for project in projects]
-        return jsonify(project_list)
-
-# Register the resource with the API
-api.add_resource(ProjectsWithIncompleteSubtasks, '/projects/with_incomplete_subtasks')
-
 if __name__ == '__main__':
     app.run(port=5555)
-
